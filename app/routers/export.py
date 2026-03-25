@@ -14,6 +14,23 @@ log = get_logger(__name__)
 router = APIRouter()
 
 
+@router.get("/", response_class=HTMLResponse)
+async def export_index(
+    request: Request,
+    username: str = Depends(verify_credentials),
+    db: Session = Depends(get_db),
+):
+    """Redirect to most recent job's export page."""
+    job = db.query(Job).order_by(Job.created_at.desc()).first()
+    if not job:
+        return templates.TemplateResponse("export.html", {
+            "request": request, "job": None,
+            "approved_count": 0, "completed_count": 0, "username": username,
+        })
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/export/{job.id}", status_code=302)
+
+
 @router.get("/{job_id}", response_class=HTMLResponse)
 async def export_page(
     job_id: str,

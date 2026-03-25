@@ -81,6 +81,23 @@ def _job_stats(db: Session, job_id: str) -> dict:
     }
 
 
+@router.get("/", response_class=HTMLResponse)
+async def processing_index(
+    request: Request,
+    username: str = Depends(verify_credentials),
+    db: Session = Depends(get_db),
+):
+    """Show most recent job's processing page, or redirect to upload."""
+    job = db.query(Job).order_by(Job.created_at.desc()).first()
+    if not job:
+        return templates.TemplateResponse("processing.html", {
+            "request": request, "job": None, "username": username,
+            "message": "No jobs yet. Upload a batch to get started.",
+        })
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/processing/{job.id}", status_code=302)
+
+
 @router.get("/stats")
 async def all_jobs_stats(
     username: str = Depends(verify_credentials),

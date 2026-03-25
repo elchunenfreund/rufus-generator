@@ -41,6 +41,23 @@ def _refresh_job_counters(db: Session, job_id: str):
         job.status = JobStatus.completed
 
 
+@router.get("/", response_class=HTMLResponse)
+async def review_index(
+    request: Request,
+    username: str = Depends(verify_credentials),
+    db: Session = Depends(get_db),
+):
+    """Redirect to most recent job's review page."""
+    job = db.query(Job).order_by(Job.created_at.desc()).first()
+    if not job:
+        return templates.TemplateResponse("review.html", {
+            "request": request, "job": None, "records": [],
+            "username": username, "pagination": {}, "filters": {},
+        })
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/review/{job.id}", status_code=302)
+
+
 @router.get("/{job_id}", response_class=HTMLResponse)
 async def review_page(
     job_id: str,
