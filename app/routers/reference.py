@@ -26,9 +26,7 @@ async def reference_page(
     db: Session = Depends(get_db),
 ):
     profiles = db.query(ReferenceProfile).order_by(ReferenceProfile.created_at.desc()).all()
-    return templates.TemplateResponse(
-        "reference.html", {"request": request, "profiles": profiles}
-    )
+    return templates.TemplateResponse("reference.html", request, profiles=profiles)
 
 
 @router.post("/upload")
@@ -41,13 +39,9 @@ async def upload_reference(
     """Upload and analyze a competitor listing PDF."""
     if not pdf_file.filename or not pdf_file.filename.lower().endswith(".pdf"):
         return templates.TemplateResponse(
-            "reference.html",
-            {
-                "request": request,
-                "profiles": db.query(ReferenceProfile).all(),
-                "error": "Please upload a PDF file.",
-            },
-            status_code=400,
+            "reference.html", request,
+            profiles=db.query(ReferenceProfile).all(),
+            error="Please upload a PDF file.",
         )
 
     # Save PDF with size limit (50MB)
@@ -64,13 +58,9 @@ async def upload_reference(
             if written > max_pdf_size:
                 pdf_path.unlink(missing_ok=True)
                 return templates.TemplateResponse(
-                    "reference.html",
-                    {
-                        "request": request,
-                        "profiles": db.query(ReferenceProfile).all(),
-                        "error": "PDF file exceeds 50MB limit.",
-                    },
-                    status_code=400,
+                    "reference.html", request,
+                    profiles=db.query(ReferenceProfile).all(),
+                    error="PDF file exceeds 50MB limit.",
                 )
             f.write(chunk)
 
@@ -79,13 +69,9 @@ async def upload_reference(
 
     if result.error:
         return templates.TemplateResponse(
-            "reference.html",
-            {
-                "request": request,
-                "profiles": db.query(ReferenceProfile).all(),
-                "error": f"Analysis failed: {result.error}",
-            },
-            status_code=500,
+            "reference.html", request,
+            profiles=db.query(ReferenceProfile).all(),
+            error=f"Analysis failed: {result.error}",
         )
 
     # Save to DB
@@ -113,12 +99,9 @@ async def upload_reference(
 
     profiles = db.query(ReferenceProfile).order_by(ReferenceProfile.created_at.desc()).all()
     return templates.TemplateResponse(
-        "reference.html",
-        {
-            "request": request,
-            "profiles": profiles,
-            "success": f"Reference profile '{profile.name}' created successfully.",
-        },
+        "reference.html", request,
+        profiles=profiles,
+        success=f"Reference profile '{profile.name}' created successfully.",
     )
 
 
@@ -132,6 +115,4 @@ async def view_profile(
     profile = db.query(ReferenceProfile).filter(ReferenceProfile.id == profile_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Reference profile not found")
-    return templates.TemplateResponse(
-        "reference_detail.html", {"request": request, "profile": profile}
-    )
+    return templates.TemplateResponse("reference_detail.html", request, profile=profile)
