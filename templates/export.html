@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Export - Job {{ job_id[:8] }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Export Listings</h2>
+    <p style="color:var(--color-text-secondary);margin-bottom:24px;">
+        Export approved and completed ASINs to Google Sheets with color-coded formatting.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px;">
+        <div style="text-align:center;padding:16px;background:var(--color-primary-light);border-radius:var(--radius);">
+            <div style="font-size:32px;font-weight:700;color:var(--color-primary);">{{ approved_count }}</div>
+            <div style="font-size:12px;">Approved</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#e8f5e9;border-radius:var(--radius);">
+            <div style="font-size:32px;font-weight:700;color:var(--color-source);">{{ completed_count }}</div>
+            <div style="font-size:12px;">Completed</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:#f5f5f5;border-radius:var(--radius);">
+            <div style="font-size:32px;font-weight:700;">{{ exportable }}</div>
+            <div style="font-size:12px;">Total Exportable</div>
+        </div>
+    </div>
+
+    {% if exportable > 0 %}
+    <div style="background:#fff3e0;border-radius:var(--radius);padding:16px;margin-bottom:24px;">
+        <strong>Export {{ exportable }} ASINs to Google Sheets?</strong>
+        <p style="font-size:13px;color:var(--color-text-secondary);margin-top:4px;">
+            A new spreadsheet will be created with color coding:
+            <span class="indicator indicator-source">Source Data</span>
+            <span class="indicator indicator-ai">AI Generated</span>
+            <span class="indicator indicator-missing">Missing</span>
+        </p>
+    </div>
+
+    <form action="/export/{{ job_id }}/sheets" method="post" id="export-form">
+        <button type="submit" class="btn btn-primary" id="export-btn"
+                onclick="this.disabled=true;this.textContent='Exporting...';document.getElementById('export-form').submit();">
+            Export to Google Sheets
+        </button>
+    </form>
+    {% else %}
+    <p class="empty-state">
+        No ASINs ready for export. <a href="/review/{{ job_id }}">Review and approve listings first.</a>
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
