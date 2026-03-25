@@ -26,7 +26,7 @@ ALLOWED_ARCHIVE_TYPES = {".zip"}
 
 @router.get("/", response_class=HTMLResponse)
 async def upload_page(request: Request, username: str = Depends(verify_credentials)):
-    return templates.TemplateResponse("upload.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="upload.html")
 
 
 @router.post("/process")

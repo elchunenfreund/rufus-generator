@@ -142,9 +142,10 @@ def render_report_card_html(data: ReportData) -> str:
     # Backend attributes
     attrs_html = ""
     if data.backend_attributes:
+        missing_em = '<em style="color:var(--color-missing)">Missing</em>'
         rows = "".join(
             f'<tr><td style="padding:6px 12px;font-weight:500;">{k.replace("_", " ").title()}</td>'
-            f'<td style="padding:6px 12px;" contenteditable="true">{_esc(v) if v else "<em style=\\"color:var(--color-missing)\\">Missing</em>"}</td></tr>'
+            f'<td style="padding:6px 12px;" contenteditable="true">{_esc(v) if v else missing_em}</td></tr>'
             for k, v in data.backend_attributes.items()
         )
         attrs_html = f"""

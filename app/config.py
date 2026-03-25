@@ -61,7 +61,7 @@ def setup_logging():
             else structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
-            level_number=logging.DEBUG if settings.debug else logging.INFO,
+            logging.DEBUG if settings.debug else logging.INFO,
         ),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),

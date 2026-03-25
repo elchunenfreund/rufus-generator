@@ -59,7 +59,7 @@ async def health_check():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, username: str = Depends(verify_credentials)):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="home.html")
 
 
 # Import and include routers
