@@ -92,13 +92,20 @@ async def process_upload(
                     else:
                         all_asins[asin] = row
 
-    # Reject if duplicates found
+    # Reject if duplicates found — hard stop, not just a warning
     unique_duplicates = sorted(set(duplicate_asins))
     if unique_duplicates:
-        parse_errors.append(
-            f"Duplicate ASINs found across spreadsheets ({len(unique_duplicates)}): "
-            f"{', '.join(unique_duplicates[:10])}{'...' if len(unique_duplicates) > 10 else ''}. "
-            f"Please fix source data — each ASIN must appear only once."
+        return templates.TemplateResponse(
+            "upload.html",
+            {
+                "request": request,
+                "errors": [
+                    f"Duplicate ASINs found ({len(unique_duplicates)}): "
+                    f"{', '.join(unique_duplicates[:10])}{'...' if len(unique_duplicates) > 10 else ''}. "
+                    f"Please fix source data — each ASIN must appear only once."
+                ] + parse_errors,
+            },
+            status_code=400,
         )
 
     if not all_asins and not parse_errors:
@@ -130,10 +137,10 @@ async def process_upload(
             else:
                 source_files.append(str(zip_path))
 
-            images_dir = job_dir / "images"
-            images_dir.mkdir(exist_ok=True)
-            image_result = extract_images(zip_path, images_dir, set(all_asins.keys()))
-            parse_errors.extend(image_result.errors)
+                images_dir = job_dir / "images"
+                images_dir.mkdir(exist_ok=True)
+                image_result = extract_images(zip_path, images_dir, set(all_asins.keys()))
+                parse_errors.extend(image_result.errors)
 
     # If critical errors, return to upload page with errors
     if not all_asins:

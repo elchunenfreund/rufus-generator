@@ -50,14 +50,29 @@ async def upload_reference(
             status_code=400,
         )
 
-    # Save PDF
+    # Save PDF with size limit (50MB)
     ref_dir = Path(settings.upload_dir) / "references"
     ref_dir.mkdir(parents=True, exist_ok=True)
     file_id = uuid.uuid4()
     safe_name = Path(pdf_file.filename or "reference.pdf").name
     pdf_path = ref_dir / f"{file_id}_{safe_name}"
+    max_pdf_size = 50 * 1024 * 1024  # 50MB
+    written = 0
     with open(pdf_path, "wb") as f:
-        shutil.copyfileobj(pdf_file.file, f)
+        while chunk := pdf_file.file.read(8192):
+            written += len(chunk)
+            if written > max_pdf_size:
+                pdf_path.unlink(missing_ok=True)
+                return templates.TemplateResponse(
+                    "reference.html",
+                    {
+                        "request": request,
+                        "profiles": db.query(ReferenceProfile).all(),
+                        "error": "PDF file exceeds 50MB limit.",
+                    },
+                    status_code=400,
+                )
+            f.write(chunk)
 
     # Analyze with Claude vision
     result = analyze_pdf_with_vision(pdf_path)
