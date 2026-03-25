@@ -98,25 +98,46 @@ async def processing_index(
     return RedirectResponse(url=f"/processing/{job.id}", status_code=302)
 
 
-@router.get("/stats")
+@router.get("/stats", response_class=HTMLResponse)
 async def all_jobs_stats(
     username: str = Depends(verify_credentials),
     db: Session = Depends(get_db),
 ):
-    """Return summary stats for all jobs (used by home page)."""
+    """Return HTML partial with job stats for the home page HTMX swap."""
     jobs = db.query(Job).order_by(Job.created_at.desc()).limit(10).all()
-    return [
-        {
-            "id": str(j.id),
-            "status": j.status.value,
-            "total_asins": j.total_asins,
-            "completed": j.completed_asins,
-            "failed": j.failed_asins,
-            "created_at": j.created_at.isoformat() if j.created_at else "",
-            "cost_usd": f"${j.estimated_cost_usd:.2f}" if j.estimated_cost_usd else "$0.00",
-        }
-        for j in jobs
-    ]
+    if not jobs:
+        return "<p class='empty-state'>No jobs yet. Upload your first batch to get started.</p>"
+
+    rows = []
+    for j in jobs:
+        status_class = {
+            "completed": "color: var(--color-source);",
+            "processing": "color: var(--color-primary);",
+            "failed": "color: var(--color-missing);",
+        }.get(j.status.value, "color: var(--color-text-secondary);")
+        cost = f"${j.estimated_cost_usd:.2f}" if j.estimated_cost_usd else "$0.00"
+        date = j.created_at.strftime("%b %d, %H:%M") if j.created_at else ""
+        rows.append(
+            f'<tr>'
+            f'<td><a href="/processing/{j.id}" style="color:var(--color-primary);text-decoration:none;">{str(j.id)[:8]}...</a></td>'
+            f'<td><span style="{status_class}font-weight:600;">{j.status.value}</span></td>'
+            f'<td>{j.completed_asins}/{j.total_asins}</td>'
+            f'<td>{j.failed_asins}</td>'
+            f'<td>{cost}</td>'
+            f'<td>{date}</td>'
+            f'</tr>'
+        )
+    table = (
+        '<table style="width:100%;border-collapse:collapse;margin-top:16px;">'
+        '<thead><tr style="border-bottom:2px solid var(--color-border);text-align:left;">'
+        '<th style="padding:8px;">Job</th><th style="padding:8px;">Status</th>'
+        '<th style="padding:8px;">Progress</th><th style="padding:8px;">Failed</th>'
+        '<th style="padding:8px;">Cost</th><th style="padding:8px;">Created</th>'
+        '</tr></thead><tbody>'
+        + "".join(rows)
+        + '</tbody></table>'
+    )
+    return f'<h3 style="margin:0 0 8px 0;">Recent Jobs</h3>{table}'
 
 
 @router.get("/{job_id}", response_class=HTMLResponse)
