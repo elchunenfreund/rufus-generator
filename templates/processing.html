@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Processing - {{ job_id[:8] }}{% endblock %}
+
+{% block content %}
+<div class="card" hx-ext="sse" sse-connect="/processing/{{ job_id }}/stream">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+        <h2>Processing Job</h2>
+        <div style="display:flex;gap:8px;">
+            {% if not stats.is_complete and not stats.is_paused %}
+            <form action="/processing/{{ job_id }}/pause" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-secondary">Pause</button>
+            </form>
+            {% elif stats.is_paused %}
+            <form action="/processing/{{ job_id }}/resume" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-primary">Resume</button>
+            </form>
+            {% endif %}
+            {% if stats.failed > 0 %}
+            <form action="/processing/{{ job_id }}/retry-failed" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-secondary">Retry {{ stats.failed }} Failed</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Big progress counter -->
+    <div id="progress-display" sse-swap="progress" style="text-align:center;margin-bottom:32px;">
+        <div style="font-size:64px;font-weight:700;color:var(--color-primary);">
+            {{ stats.done }}<span style="font-size:24px;color:var(--color-text-secondary);">/{{ stats.total }}</span>
+        </div>
+        <div style="font-size:14px;color:var(--color-text-secondary);margin-bottom:16px;">
+            ASINs processed &middot; ETA: {{ stats.eta }} &middot; Cost: {{ stats.cost_usd }}
+        </div>
+        <div class="progress-bar" style="max-width:600px;margin:0 auto;">
+            <div class="progress-fill" style="width:{{ stats.progress_pct }}%;"></div>
+        </div>
+    </div>
+
+    <!-- Status breakdown -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:32px;">
+        <div style="text-align:center;padding:12px;background:var(--color-primary-light);border-radius:var(--radius);">
+            <div style="font-size:24px;font-weight:700;color:var(--color-primary);" id="stat-completed">{{ stats.completed }}</div>
+            <div style="font-size:12px;">Completed</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:#fff3e0;border-radius:var(--radius);">
+            <div style="font-size:24px;font-weight:700;color:#ff9800;" id="stat-review">{{ stats.needs_review }}</div>
+            <div style="font-size:12px;">Needs Review</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:#e3f2fd;border-radius:var(--radius);">
+            <div style="font-size:24px;font-weight:700;color:var(--color-ai);" id="stat-processing">{{ stats.processing }}</div>
+            <div style="font-size:12px;">Processing</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:#f5f5f5;border-radius:var(--radius);">
+            <div style="font-size:24px;font-weight:700;color:var(--color-text-secondary);" id="stat-queued">{{ stats.queued }}</div>
+            <div style="font-size:12px;">Queued</div>
+        </div>
+        <div style="text-align:center;padding:12px;background:#ffebee;border-radius:var(--radius);">
+            <div style="font-size:24px;font-weight:700;color:var(--color-missing);" id="stat-failed">{{ stats.failed }}</div>
+            <div style="font-size:12px;">Failed</div>
+        </div>
+    </div>
+
+    {% if stats.is_complete %}
+    <div style="background:#e8f5e9;border-radius:var(--radius);padding:24px;text-align:center;margin-bottom:24px;">
+        <h3 style="color:var(--color-source);margin-bottom:8px;">Processing Complete</h3>
+        <p>{{ stats.completed }} ASINs ready for review. Total cost: {{ stats.cost_usd }}</p>
+        <a href="/review/{{ job_id }}" class="btn btn-primary" style="margin-top:12px;">Review Listings</a>
+    </div>
+    {% endif %}
+
+    <!-- Recently completed ASINs (live feed) -->
+    <h3 style="margin-bottom:12px;">Recently Completed</h3>
+    <div id="recent-feed">
+        {% if recent %}
+        {% for r in recent %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #e0e0e0;">
+            <div>
+                <strong>{{ r.asin }}</strong>
+                <span style="font-size:12px;color:var(--color-text-secondary);margin-left:8px;">
+                    {{ r.generation_mode.value if r.generation_mode else 'text_only' }}
+                </span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                {% if r.confidence_score %}
+                <span style="font-size:13px;font-weight:600;
+                    color:{% if r.confidence_score >= 0.85 %}var(--color-source){% elif r.confidence_score >= 0.7 %}#ff9800{% else %}var(--color-missing){% endif %};">
+                    {{ "%.0f" | format(r.confidence_score * 100) }}%
+                </span>
+                {% endif %}
+                <span class="indicator {% if r.status.value == 'completed' %}indicator-source{% elif r.status.value == 'needs_review' %}indicator-ai{% else %}indicator-missing{% endif %}">
+                    {{ r.status.value | replace('_', ' ') | title }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-state">Waiting for first results...</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Handle SSE progress updates
+document.addEventListener('sse:progress', function(e) {
+    const data = JSON.parse(e.detail.data);
+    // Update the big counter
+    const display = document.getElementById('progress-display');
+    if (display) {
+        display.querySelector('div:first-child').innerHTML =
+            `<span style="font-size:64px;font-weight:700;color:var(--color-primary);">${data.done}<span style="font-size:24px;color:var(--color-text-secondary);">/${data.total}</span></span>`;
+    }
+    // Update stat boxes
+    const updates = {completed: data.completed, review: data.needs_review, processing: data.processing, queued: data.queued, failed: data.failed};
+    for (const [key, val] of Object.entries(updates)) {
+        const el = document.getElementById(`stat-${key}`);
+        if (el) el.textContent = val;
+    }
+});
+</script>
+{% endblock %}

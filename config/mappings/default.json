@@ -1,0 +1,60 @@
+{
+  "template": "flat_file_generic",
+  "template_version": "2024.1",
+  "source_mappings": {
+    "product_catalog": {
+      "asin": null,
+      "brand": null,
+      "manufacturer": null,
+      "item_weight": null,
+      "product_name": null,
+      "category": null,
+      "color": null,
+      "size": null,
+      "material": null
+    },
+    "pricing_sheet": {
+      "price": null,
+      "sale_price": null,
+      "currency": null
+    }
+  },
+  "ai_generated_fields": [
+    "title",
+    "bullet_point_1",
+    "bullet_point_2",
+    "bullet_point_3",
+    "bullet_point_4",
+    "bullet_point_5",
+    "description",
+    "search_terms",
+    "intended_use",
+    "image_alt_text"
+  ],
+  "required_backend_attributes": [
+    "color",
+    "size",
+    "material",
+    "intended_use",
+    "age_range_description",
+    "target_audience",
+    "item_form",
+    "special_features",
+    "included_components",
+    "country_of_origin"
+  ],
+  "required_fields": [
+    "asin",
+    "brand",
+    "title",
+    "bullet_point_1",
+    "description",
+    "price"
+  ],
+  "validation_rules": {
+    "title_max_chars": 200,
+    "bullet_max_chars": 500,
+    "description_max_chars": 2000,
+    "search_terms_max_chars": 250
+  }
+}

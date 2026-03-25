@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Rufus Generator - Home{% endblock %}
+
+{% block content %}
+<div class="home">
+    <h1>Amazon Rufus Listing Generator</h1>
+    <p class="subtitle">Transform spreadsheets + product images into RUFUS/COSMOS-optimized Amazon listings</p>
+
+    <div class="home-actions">
+        <a href="/upload" class="btn btn-primary">Upload New Batch</a>
+        <a href="/reference" class="btn btn-secondary">Upload Reference PDF</a>
+    </div>
+
+    <div class="home-stats" id="job-stats" hx-get="/processing/stats" hx-trigger="load" hx-swap="innerHTML">
+        <p class="empty-state">No jobs yet. Upload your first batch to get started.</p>
+    </div>
+</div>
+{% endblock %}

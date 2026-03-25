@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Upload - Rufus Generator{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Confirm Upload</h2>
+    <p style="color: var(--color-text-secondary); margin-bottom: 24px;">
+        Review the detected ASINs and column mapping before processing.
+    </p>
+
+    <!-- Summary stats -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div style="background: var(--color-primary-light); padding: 16px; border-radius: var(--radius); text-align: center;">
+            <div style="font-size: 32px; font-weight: 700; color: var(--color-primary);">{{ total_asins }}</div>
+            <div style="font-size: 14px; color: var(--color-text-secondary);">ASINs Detected</div>
+        </div>
+        <div style="background: #e8f5e9; padding: 16px; border-radius: var(--radius); text-align: center;">
+            <div style="font-size: 32px; font-weight: 700; color: var(--color-source);">{{ asins_with_images }}</div>
+            <div style="font-size: 14px; color: var(--color-text-secondary);">With Images (Vision AI)</div>
+        </div>
+        <div style="background: #fff3e0; padding: 16px; border-radius: var(--radius); text-align: center;">
+            <div style="font-size: 32px; font-weight: 700; color: #ff9800;">{{ asins_without_images }}</div>
+            <div style="font-size: 14px; color: var(--color-text-secondary);">Text Only</div>
+        </div>
+        <div style="background: #e3f2fd; padding: 16px; border-radius: var(--radius); text-align: center;">
+            <div style="font-size: 32px; font-weight: 700; color: var(--color-ai);">{{ total_images }}</div>
+            <div style="font-size: 14px; color: var(--color-text-secondary);">Total Images</div>
+        </div>
+    </div>
+
+    {% if parse_errors %}
+    <div style="background: #fff3e0; border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+        <strong style="color: #ff9800;">Warnings:</strong>
+        <ul style="margin: 8px 0 0 16px;">
+            {% for error in parse_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if orphaned_count > 0 %}
+    <div style="background: #fff3e0; border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+        <strong style="color: #ff9800;">{{ orphaned_count }} images could not be matched to an ASIN:</strong>
+        <ul style="margin: 8px 0 0 16px; font-size: 13px;">
+            {% for img in orphaned_images %}
+            <li>{{ img }}</li>
+            {% endfor %}
+            {% if orphaned_count > 20 %}
+            <li>...and {{ orphaned_count - 20 }} more</li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Column mapping -->
+    <div style="margin-bottom: 24px;">
+        <h3 style="margin-bottom: 12px;">Detected Column Mapping</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid #e0e0e0;">
+                    <th style="text-align: left; padding: 8px;">Amazon Field</th>
+                    <th style="text-align: left; padding: 8px;">Detected Column</th>
+                    <th style="text-align: left; padding: 8px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for field, column in detected_columns.items() %}
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 8px; font-weight: 500;">{{ field }}</td>
+                    <td style="padding: 8px;">{{ column or '—' }}</td>
+                    <td style="padding: 8px;">
+                        {% if column %}
+                        <span class="indicator indicator-source">Mapped</span>
+                        {% else %}
+                        <span class="indicator indicator-ai">AI Generated</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Actions -->
+    <div style="display: flex; gap: 16px;">
+        <form action="/upload/confirm/{{ job_id }}" method="post">
+            <button type="submit" class="btn btn-primary">
+                Confirm & Start Processing
+            </button>
+        </form>
+        <a href="/upload" class="btn btn-secondary">Cancel & Re-upload</a>
+    </div>
+</div>
+{% endblock %}

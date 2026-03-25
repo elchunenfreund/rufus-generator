@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Reference Profiles - Rufus Generator{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Reference Profiles</h2>
+    <p style="color: var(--color-text-secondary); margin-bottom: 24px;">
+        Upload competitor listing PDFs to extract optimization patterns. The AI will analyze
+        their title structure, bullet point style, description approach, and more — then use
+        those patterns when generating your listings.
+    </p>
+
+    {% if error %}
+    <div style="background: #ffebee; border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+        <strong style="color: var(--color-missing);">Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div style="background: #e8f5e9; border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+        <strong style="color: var(--color-source);">Success:</strong> {{ success }}
+    </div>
+    {% endif %}
+
+    <form action="/reference/upload" method="post" enctype="multipart/form-data" style="margin-bottom: 32px;">
+        <div style="display: flex; gap: 16px; align-items: end;">
+            <div style="flex: 1;">
+                <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                    Competitor Listing PDF
+                </label>
+                <input type="file" name="pdf_file" accept=".pdf" required style="padding: 8px;">
+            </div>
+            <button type="submit" class="btn btn-primary">Upload & Analyze</button>
+        </div>
+        <p style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">
+            Upload a PDF report showing optimized Amazon listings (like a COSMO Transformation Service report).
+        </p>
+    </form>
+
+    {% if profiles %}
+    <h3 style="margin-bottom: 16px;">Saved Profiles</h3>
+    {% for profile in profiles %}
+    <a href="/reference/{{ profile.id }}" style="text-decoration: none; color: inherit;">
+        <div class="card" style="border-left: 4px solid var(--color-primary); cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>{{ profile.name }}</strong>
+                    <div style="font-size: 13px; color: var(--color-text-secondary); margin-top: 4px;">
+                        Tone: {{ profile.tone or 'Not detected' }} &middot;
+                        Bullets: {{ profile.bullet_style or 'Not detected' }}
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: var(--color-text-secondary);">
+                    {{ profile.created_at.strftime('%b %d, %Y') if profile.created_at else '' }}
+                </div>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+    {% else %}
+    <p class="empty-state">No reference profiles yet. Upload a competitor PDF to get started.</p>
+    {% endif %}
+</div>
+{% endblock %}

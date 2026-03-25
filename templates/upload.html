@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - Rufus Generator{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Upload New Batch</h2>
+    <p style="color: var(--color-text-secondary); margin-bottom: 24px;">
+        Upload your base spreadsheets (.xlsx, .csv) and product images (.zip) to generate
+        RUFUS/COSMOS-optimized Amazon listings.
+    </p>
+
+    {% if errors %}
+    <div style="background: #ffebee; border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+        <strong style="color: var(--color-missing);">Upload errors:</strong>
+        <ul style="margin: 8px 0 0 16px;">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form action="/upload/process" method="post" enctype="multipart/form-data" id="upload-form">
+        <div style="margin-bottom: 24px;">
+            <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                Base Spreadsheets <span style="color: var(--color-missing);">*</span>
+            </label>
+            <input type="file" name="spreadsheets" multiple accept=".xlsx,.csv"
+                   required style="padding: 8px;">
+            <p style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">
+                Upload one or more .xlsx or .csv files containing product data with an ASIN column.
+            </p>
+        </div>
+
+        <div style="margin-bottom: 24px;">
+            <label style="font-weight: 600; display: block; margin-bottom: 8px;">
+                Product Images (optional)
+            </label>
+            <input type="file" name="images_zip" accept=".zip" style="padding: 8px;">
+            <p style="font-size: 12px; color: var(--color-text-secondary); margin-top: 4px;">
+                ZIP archive organized by ASIN (folder per ASIN, or filenames containing ASINs).
+                Max 10GB. Accepted formats: JPEG, PNG, WebP.
+            </p>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="upload-btn">
+            Upload & Detect ASINs
+        </button>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 16px;">
+    <h3>How it works</h3>
+    <ol style="padding-left: 20px; line-height: 2;">
+        <li><strong>Upload</strong> — Drop your spreadsheets and product images</li>
+        <li><strong>Confirm</strong> — Review detected ASINs, column mapping, and matched images</li>
+        <li><strong>Process</strong> — AI generates RUFUS/COSMOS-optimized listings per ASIN</li>
+        <li><strong>Review</strong> — Check AI-generated content in COSMO-style report cards</li>
+        <li><strong>Export</strong> — Send approved listings to Google Sheets or download PDF reports</li>
+    </ol>
+</div>
+{% endblock %}

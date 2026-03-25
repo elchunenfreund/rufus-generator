@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+
+# Uploads
+uploads/
+
+# Google credentials
+config/google-service-account.json
+
+# OS
+.DS_Store
+
+# gstack
+.gstack/
+.context/
