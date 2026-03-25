@@ -283,8 +283,12 @@ def _update_job_counters(db: Session, job_id: str):
         job.completed_asins + job.failed_asins + job.missing_data_asins
         + status_counts.get(ASINStatus.needs_review, 0)
     )
-    if total_done >= job.total_asins:
-        job.status = JobStatus.completed
+    if total_done >= job.total_asins and job.total_asins > 0:
+        # Don't mark as "completed" if ALL ASINs failed — mark as "failed" instead
+        if job.failed_asins >= job.total_asins:
+            job.status = JobStatus.failed
+        else:
+            job.status = JobStatus.completed
         log.info(
             "job_completed",
             job_id=str(job.id),

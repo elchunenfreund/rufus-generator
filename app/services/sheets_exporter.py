@@ -26,7 +26,11 @@ FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "\n")
 
 def _sanitize_cell(value: str) -> str:
     """Prevent CSV formula injection in Google Sheets."""
-    if isinstance(value, str) and value and value[0] in FORMULA_PREFIXES:
+    if not isinstance(value, str) or not value:
+        return value
+    # Strip leading whitespace before checking for formula characters
+    stripped = value.lstrip()
+    if stripped and stripped[0] in FORMULA_PREFIXES:
         return "'" + value  # prepend single quote to neutralize formula
     return value
 
