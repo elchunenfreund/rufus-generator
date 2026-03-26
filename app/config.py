@@ -26,6 +26,10 @@ class Settings(BaseSettings):
         # Heroku uses postgres:// but SQLAlchemy requires postgresql://
         if self.database_url.startswith("postgres://"):
             self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+        # Heroku Redis uses rediss:// (SSL) with self-signed certs — add ssl_cert_reqs
+        if self.redis_url.startswith("rediss://") and "ssl_cert_reqs" not in self.redis_url:
+            sep = "&" if "?" in self.redis_url else "?"
+            self.redis_url = f"{self.redis_url}{sep}ssl_cert_reqs=CERT_NONE"
         # Default celery URLs to redis_url if not explicitly set
         if self.celery_broker_url == "redis://localhost:6379/0" and self.redis_url != "redis://localhost:6379/0":
             self.celery_broker_url = self.redis_url

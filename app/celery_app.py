@@ -1,3 +1,5 @@
+import ssl
+
 import sentry_sdk
 from celery import Celery
 
@@ -18,7 +20,16 @@ celery = Celery(
     backend=settings.celery_result_backend,
 )
 
+# Heroku Redis uses rediss:// (SSL) with self-signed certs
+_redis_ssl_opts = {}
+if settings.celery_broker_url.startswith("rediss://"):
+    _redis_ssl_opts = {
+        "broker_use_ssl": {"ssl_cert_reqs": ssl.CERT_NONE},
+        "redis_backend_use_ssl": {"ssl_cert_reqs": ssl.CERT_NONE},
+    }
+
 celery.conf.update(
+    **_redis_ssl_opts,
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
