@@ -117,7 +117,12 @@ def generate_listing(
 
     try:
         # Build user prompt with all available context
-        user_parts = [f"Generate an optimized Amazon listing for ASIN: {asin}\n"]
+        is_new_product = asin.startswith(("SKU-", "NEW-", "ROW-"))
+        if is_new_product:
+            user_parts = [f"Generate an optimized Amazon listing for a NEW product (ID: {asin}).\n"
+                          "This product does not have an ASIN yet — we are creating the listing from scratch.\n"]
+        else:
+            user_parts = [f"Generate an optimized Amazon listing for ASIN: {asin}\n"]
         user_parts.append("## Source Product Data")
         for key, val in source_data.items():
             if val and len(str(val).strip()) > 0:

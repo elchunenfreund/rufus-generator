@@ -1,5 +1,6 @@
 """Upload router: spreadsheet + image upload, ASIN detection, mapping confirmation."""
 
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -24,6 +25,40 @@ router = APIRouter()
 ALLOWED_SPREADSHEET_TYPES = {".xlsx", ".csv"}
 ALLOWED_ARCHIVE_TYPES = {".zip"}
 ALLOWED_IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".webp"}
+
+# Column names used for fallback product ID when no ASIN is present
+_SKU_COLUMNS = {"sku", "item_sku", "product_id", "upc", "gtin", "ean", "external_product_id",
+                "external product id", "sku without case"}
+_NAME_COLUMNS = {"title", "name", "product_name", "item_name", "product_title",
+                 "title/name of product", "item name"}
+
+
+def _generate_product_id(row: dict, headers: list[str], row_index: int) -> str:
+    """Generate a product identifier from SKU, product name, or row number."""
+    # Try SKU-like columns
+    for header in headers:
+        if header.strip().lower() in _SKU_COLUMNS:
+            val = str(row.get(header, "")).strip()
+            if val and val.lower() not in ("none", ""):
+                # Clean numeric values (e.g. 18545.0 -> 18545)
+                try:
+                    num = float(val)
+                    val = str(int(num)) if num == int(num) else val
+                except (ValueError, OverflowError):
+                    pass
+                return f"SKU-{val[:20]}"
+
+    # Try product name columns
+    for header in headers:
+        if header.strip().lower() in _NAME_COLUMNS:
+            val = str(row.get(header, "")).strip()
+            if val and val.lower() not in ("none", ""):
+                # Create a slug from product name
+                slug = re.sub(r"[^a-zA-Z0-9]+", "-", val)[:30].strip("-").upper()
+                return f"NEW-{slug}"
+
+    # Last resort: row number
+    return f"ROW-{row_index + 1:04d}"
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -92,15 +127,27 @@ async def process_upload(
         parse_errors.extend(result.errors)
         all_headers.extend(h for h in result.headers if h not in all_headers)
 
-        # Collect ASINs — reject duplicates instead of silent last-seen-wins
+        # Collect products — by ASIN if available, otherwise generate a placeholder ID
+        row_counter = 0
         for row in result.rows:
+            product_id = None
+
+            # Try to get ASIN from the detected ASIN column
             if result.asin_column and result.asin_column in row:
-                asin = row[result.asin_column].strip().upper()
-                if len(asin) == 10 and asin.isalnum():
-                    if asin in all_asins:
-                        duplicate_asins.append(asin)
-                    else:
-                        all_asins[asin] = row
+                val = row[result.asin_column].strip().upper()
+                if len(val) == 10 and val.isalnum():
+                    product_id = val
+
+            # Fallback: generate an ID from SKU, product name, or row number
+            if not product_id:
+                product_id = _generate_product_id(row, result.headers, row_counter)
+
+            row_counter += 1
+
+            if product_id in all_asins:
+                duplicate_asins.append(product_id)
+            else:
+                all_asins[product_id] = row
 
     # Reject if duplicates found — hard stop, not just a warning
     unique_duplicates = sorted(set(duplicate_asins))
@@ -110,16 +157,16 @@ async def process_upload(
             {
                 "request": request,
                 "errors": [
-                    f"Duplicate ASINs found ({len(unique_duplicates)}): "
+                    f"Duplicate products found ({len(unique_duplicates)}): "
                     f"{', '.join(unique_duplicates[:10])}{'...' if len(unique_duplicates) > 10 else ''}. "
-                    f"Please fix source data — each ASIN must appear only once."
+                    f"Please fix source data — each product must appear only once."
                 ] + parse_errors,
             },
             status_code=400,
         )
 
     if not all_asins and not parse_errors:
-        parse_errors.append("No valid ASINs found in uploaded spreadsheets")
+        parse_errors.append("No products found in uploaded spreadsheets")
 
     # Extract images if provided — supports individual files and/or ZIP archives
     image_result = None
