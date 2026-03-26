@@ -16,8 +16,8 @@ REQUIRED_LISTING_FIELDS = ["title", "bullet_point_1", "description", "search_ter
 
 # Confidence weights by data source
 WEIGHT_SOURCE = 1.0      # data from client spreadsheet
-WEIGHT_VISION = 0.8      # data from vision AI analysis
-WEIGHT_AI_GENERATED = 0.7  # data from content generation
+WEIGHT_VISION = 0.95     # data from vision AI analysis
+WEIGHT_AI_GENERATED = 0.85  # data from content generation
 
 
 @dataclass
