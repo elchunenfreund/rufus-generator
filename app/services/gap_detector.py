@@ -42,9 +42,12 @@ def detect_gaps_and_score(
     total_weight = 0.0
     weighted_sum = 0.0
 
+    # Build case-insensitive lookup for source data (CSV headers may be Title Case)
+    source_lower = {k.lower().replace(" ", "_"): v for k, v in source_data.items()}
+
     for field_name in all_required:
         # Check each data source in priority order
-        if field_name in source_data and _is_populated(source_data[field_name]):
+        if field_name in source_lower and _is_populated(source_lower[field_name]):
             report.populated_fields.append(field_name)
             report.field_scores[field_name] = WEIGHT_SOURCE
             weighted_sum += WEIGHT_SOURCE
