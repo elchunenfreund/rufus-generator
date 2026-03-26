@@ -50,3 +50,6 @@ celery.conf.update(
 )
 
 celery.autodiscover_tasks(["app.tasks"])
+
+# Explicit import to surface errors — autodiscover swallows import failures silently
+import app.tasks.process_asin  # noqa: F401, E402
