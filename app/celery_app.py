@@ -1,6 +1,16 @@
+import sentry_sdk
 from celery import Celery
 
 from app.config import settings
+
+# Initialize Sentry for the Celery worker process as well
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=0.2,
+        send_default_pii=False,
+    )
 
 celery = Celery(
     "rufus_generator",

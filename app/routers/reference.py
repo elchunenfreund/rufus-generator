@@ -1,6 +1,6 @@
 """Reference router: upload competitor PDFs, analyze optimization patterns."""
 
-import shutil
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -14,6 +14,7 @@ from app.database import get_db
 from app.templating import templates
 from app.models import ReferenceProfile
 from app.services.pdf_analyzer import analyze_pdf_with_vision
+from app.services.storage import storage
 
 log = get_logger(__name__)
 router = APIRouter()
@@ -44,28 +45,40 @@ async def upload_reference(
             error="Please upload a PDF file.",
         )
 
-    # Save PDF with size limit (50MB)
-    ref_dir = Path(settings.upload_dir) / "references"
-    ref_dir.mkdir(parents=True, exist_ok=True)
+    # Read PDF with size limit (50MB)
     file_id = uuid.uuid4()
     safe_name = Path(pdf_file.filename or "reference.pdf").name
-    pdf_path = ref_dir / f"{file_id}_{safe_name}"
     max_pdf_size = 50 * 1024 * 1024  # 50MB
+    chunks = []
     written = 0
-    with open(pdf_path, "wb") as f:
-        while chunk := pdf_file.file.read(8192):
-            written += len(chunk)
-            if written > max_pdf_size:
-                pdf_path.unlink(missing_ok=True)
-                return templates.TemplateResponse(
-                    "reference.html", request,
-                    profiles=db.query(ReferenceProfile).all(),
-                    error="PDF file exceeds 50MB limit.",
-                )
-            f.write(chunk)
+    oversized = False
+    while chunk := pdf_file.file.read(8192):
+        written += len(chunk)
+        if written > max_pdf_size:
+            oversized = True
+            break
+        chunks.append(chunk)
 
-    # Analyze with Claude vision
-    result = analyze_pdf_with_vision(pdf_path)
+    if oversized:
+        return templates.TemplateResponse(
+            "reference.html", request,
+            profiles=db.query(ReferenceProfile).all(),
+            error="PDF file exceeds 50MB limit.",
+        )
+
+    pdf_data = b"".join(chunks)
+    storage_key = f"references/{file_id}_{safe_name}"
+    storage.save(storage_key, pdf_data)
+
+    # Analyze with Claude vision — needs a local temp file
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_data)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = analyze_pdf_with_vision(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
     if result.error:
         return templates.TemplateResponse(
@@ -77,7 +90,7 @@ async def upload_reference(
     # Save to DB
     profile = ReferenceProfile(
         name=pdf_file.filename.replace(".pdf", "").replace("_", " ").title(),
-        source_filename=str(pdf_path),
+        source_filename=storage_key,
         tone=result.tone,
         bullet_style=result.bullet_style,
         keyword_density=result.keyword_density,
