@@ -53,13 +53,26 @@
                 Comma-separated email addresses. They'll get editor access and a notification.
             </div>
         </div>
+        {% if google_connected|default(false) %}
         <button type="submit" class="btn btn-secondary" id="export-btn">
             Export to Google Sheets
         </button>
+        <span style="font-size:12px;color:var(--color-source);margin-left:8px;">&#10003; Google account connected</span>
+        {% elif google_oauth_configured|default(false) %}
+        <a href="/export/auth/google?job_id={{ job_id }}" class="btn btn-secondary">
+            Connect Google Account
+        </a>
+        <span style="font-size:12px;color:var(--color-text-secondary);margin-left:8px;">Sign in to export directly to your Google Sheets</span>
+        {% else %}
+        <button type="submit" class="btn btn-secondary" id="export-btn">
+            Export to Google Sheets
+        </button>
+        {% endif %}
         <script>
-        document.getElementById('export-form').addEventListener('submit', function() {
+        var form = document.getElementById('export-form');
+        if (form) form.addEventListener('submit', function() {
             var btn = document.getElementById('export-btn');
-            setTimeout(function() { btn.disabled = true; btn.textContent = 'Exporting...'; }, 100);
+            if (btn) setTimeout(function() { btn.disabled = true; btn.textContent = 'Exporting...'; }, 100);
         });
         </script>
     </form>
