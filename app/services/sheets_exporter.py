@@ -36,14 +36,23 @@ def _sanitize_cell(value: str) -> str:
 
 
 def _get_sheets_service():
-    if not settings.google_service_account_path:
+    import json
+    import os
+
+    # Try JSON from env var first (for Heroku), then file path
+    json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if json_str:
+        info = json.loads(json_str)
+        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+    elif settings.google_service_account_path:
+        creds = service_account.Credentials.from_service_account_file(
+            settings.google_service_account_path, scopes=SCOPES
+        )
+    else:
         raise ValueError(
             "Google Sheets export is not configured. "
-            "Set GOOGLE_SERVICE_ACCOUNT_PATH in your .env file."
+            "Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_PATH."
         )
-    creds = service_account.Credentials.from_service_account_file(
-        settings.google_service_account_path, scopes=SCOPES
-    )
     return build("sheets", "v4", credentials=creds)
 
 
