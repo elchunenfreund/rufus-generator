@@ -4,6 +4,7 @@ Pulls optimization patterns from ReferenceProfile (if available) to inform gener
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 
 import anthropic
@@ -187,14 +188,24 @@ Return ONLY a JSON object with these exact fields:
         released = True
         rate_limiter.on_success()
 
-        # Parse response
+        # Parse response — extract JSON robustly
         text = response.content[0].text
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         elif "```" in text:
             text = text.split("```")[1].split("```")[0]
 
-        data = json.loads(text.strip())
+        try:
+            data = json.loads(text.strip())
+        except json.JSONDecodeError:
+            # Try to find the outermost JSON object with regex
+            match = re.search(r'\{[\s\S]*\}', text)
+            if match:
+                # Fix common LLM JSON issues: trailing commas before }
+                cleaned = re.sub(r',\s*([}\]])', r'\1', match.group())
+                data = json.loads(cleaned)
+            else:
+                raise
 
         # Extract and validate each field
         result.title = _validate_field(data.get("title", ""), max_len=200)
