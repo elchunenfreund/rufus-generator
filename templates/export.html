@@ -53,10 +53,15 @@
                 Comma-separated email addresses. They'll get editor access and a notification.
             </div>
         </div>
-        <button type="submit" class="btn btn-secondary" id="export-btn"
-                onclick="this.disabled=true;this.textContent='Exporting...';">
+        <button type="submit" class="btn btn-secondary" id="export-btn">
             Export to Google Sheets
         </button>
+        <script>
+        document.getElementById('export-form').addEventListener('submit', function() {
+            var btn = document.getElementById('export-btn');
+            setTimeout(function() { btn.disabled = true; btn.textContent = 'Exporting...'; }, 100);
+        });
+        </script>
     </form>
     {% else %}
     <p class="empty-state">
