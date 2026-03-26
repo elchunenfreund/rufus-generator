@@ -75,7 +75,7 @@
     <div style="position:absolute;top:12px;right:12px;z-index:1;background:#e8f5e9;color:var(--color-source);padding:6px 16px;border-radius:20px;font-weight:600;font-size:13px;">
         &#10003; Approved
     </div>
-    {% elif item.record.status.value == 'needs_review' %}
+    {% elif item.record.status.value in ['needs_review', 'completed'] %}
     <div style="position:absolute;top:12px;right:80px;z-index:1;">
         <form action="/review/{{ job_id }}/approve/{{ item.record.id }}" method="post" style="display:inline;">
             <button type="submit" class="btn btn-primary" style="padding:6px 16px;font-size:13px;">Approve</button>
