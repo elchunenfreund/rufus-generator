@@ -164,7 +164,10 @@ Return ONLY a JSON object with these exact fields:
   "special_features": "key special features",
   "included_components": "what's in the box",
   "country_of_origin": "manufacturing country"
-}""")
+}
+
+IMPORTANT: You MUST fill in EVERY field above. Do not leave any field as an empty string.
+If you don't know the exact value, make your best inference from the product data provided.""")
 
         user_prompt = "\n".join(user_parts)
 
