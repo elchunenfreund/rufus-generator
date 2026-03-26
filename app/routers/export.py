@@ -1,7 +1,10 @@
-"""Export router: Google Sheets export and PDF report generation."""
+"""Export router: CSV download, Google Sheets export, and PDF report generation."""
+
+import csv
+import io
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth import verify_credentials
@@ -96,3 +99,57 @@ async def export_to_sheets(
     except Exception as e:
         log.error("sheets_export_error", job_id=job_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Export failed: {e}")
+
+
+@router.get("/{job_id}/csv")
+async def export_csv(
+    job_id: str,
+    include_completed: bool = Query(True),
+    username: str = Depends(verify_credentials),
+    db: Session = Depends(get_db),
+):
+    """Download approved (and optionally completed) ASINs as a CSV file."""
+    from app.services.sheets_exporter import EXPORT_COLUMNS
+
+    statuses = [ASINStatus.approved]
+    if include_completed:
+        statuses.append(ASINStatus.completed)
+
+    records = (
+        db.query(ASINRecord)
+        .filter(ASINRecord.job_id == job_id, ASINRecord.status.in_(statuses))
+        .order_by(ASINRecord.asin)
+        .all()
+    )
+
+    if not records:
+        raise HTTPException(status_code=400, detail="No exportable ASINs")
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([col.replace("_", " ").title() for col in EXPORT_COLUMNS])
+
+    for record in records:
+        source = record.source_data or {}
+        generated = record.generated_data or {}
+        row = []
+        for col in EXPORT_COLUMNS:
+            if col == "asin":
+                row.append(record.asin)
+            elif col == "confidence_score":
+                row.append(f"{record.confidence_score:.0%}" if record.confidence_score else "")
+            elif col == "generation_mode":
+                row.append(record.generation_mode.value if record.generation_mode else "")
+            elif col == "missing_fields":
+                row.append(", ".join(record.missing_fields or []))
+            else:
+                row.append(source.get(col, "") or generated.get(col, ""))
+        writer.writerow(row)
+
+    output.seek(0)
+    log.info("csv_export", job_id=job_id, count=len(records))
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=rufus-export-{job_id[:8]}.csv"},
+    )

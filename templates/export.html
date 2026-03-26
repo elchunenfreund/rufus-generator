@@ -35,12 +35,17 @@
         </p>
     </div>
 
-    <form action="/export/{{ job_id }}/sheets" method="post" id="export-form">
-        <button type="submit" class="btn btn-primary" id="export-btn"
-                onclick="this.disabled=true;this.textContent='Exporting...';document.getElementById('export-form').submit();">
-            Export to Google Sheets
-        </button>
-    </form>
+    <div style="display:flex;gap:12px;">
+        <a href="/export/{{ job_id }}/csv" class="btn btn-primary">
+            Download CSV
+        </a>
+        <form action="/export/{{ job_id }}/sheets" method="post" id="export-form" style="display:inline;">
+            <button type="submit" class="btn btn-secondary" id="export-btn"
+                    onclick="this.disabled=true;this.textContent='Exporting...';document.getElementById('export-form').submit();">
+                Export to Google Sheets
+            </button>
+        </form>
+    </div>
     {% else %}
     <p class="empty-state">
         No ASINs ready for export. <a href="/review/{{ job_id }}">Review and approve listings first.</a>
