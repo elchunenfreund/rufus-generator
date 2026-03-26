@@ -163,7 +163,7 @@ async def approve_asin(
 @router.post("/{job_id}/batch-approve")
 async def batch_approve(
     job_id: str,
-    min_confidence: float = Query(0.85),
+    min_confidence: float = Query(0.80),
     username: str = Depends(verify_credentials),
     db: Session = Depends(get_db),
 ):

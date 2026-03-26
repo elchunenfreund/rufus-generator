@@ -9,10 +9,10 @@
         <p style="color:var(--color-text-secondary);">{{ total_count }} ASINs &middot; Job {{ job_id[:8] }}</p>
     </div>
     <div style="display:flex;gap:8px;">
-        <form action="/review/{{ job_id }}/batch-approve" method="post" style="display:inline;"
-              onsubmit="return confirm('Approve all ASINs with 85%+ confidence?');">
+        <form action="/review/{{ job_id }}/batch-approve?min_confidence=0.80" method="post" style="display:inline;"
+              onsubmit="return confirm('Approve all ASINs with 80%+ confidence?');">
             <button type="submit" class="btn btn-primary">
-                Batch Approve (85%+)
+                Batch Approve (80%+)
             </button>
         </form>
         <a href="/export/{{ job_id }}" class="btn btn-secondary">Export</a>
