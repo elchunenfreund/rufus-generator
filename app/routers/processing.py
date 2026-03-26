@@ -209,6 +209,8 @@ async def pause_job(
     db: Session = Depends(get_db),
 ):
     """Pause a running job — in-flight tasks complete but no new ones start."""
+    from fastapi.responses import RedirectResponse
+
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -217,7 +219,7 @@ async def pause_job(
         job.status = JobStatus.paused
         db.commit()
         log.info("job_paused", job_id=job_id)
-    return {"status": "paused"}
+    return RedirectResponse(url=f"/processing/{job_id}", status_code=303)
 
 
 @router.post("/{job_id}/resume")
@@ -227,6 +229,8 @@ async def resume_job(
     db: Session = Depends(get_db),
 ):
     """Resume a paused job."""
+    from fastapi.responses import RedirectResponse
+
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -240,7 +244,7 @@ async def resume_job(
         enqueue_job.delay(str(job_id))
 
         log.info("job_resumed", job_id=job_id)
-    return {"status": "resumed"}
+    return RedirectResponse(url=f"/processing/{job_id}", status_code=303)
 
 
 @router.post("/{job_id}/retry-failed")
@@ -273,4 +277,5 @@ async def retry_failed(
     enqueue_job.delay(str(job_id))
 
     log.info("retry_failed", job_id=job_id, count=len(failed_records))
-    return {"retried": len(failed_records)}
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/processing/{job_id}", status_code=303)
