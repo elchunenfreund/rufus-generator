@@ -35,17 +35,29 @@
         </p>
     </div>
 
-    <div style="display:flex;gap:12px;">
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
         <a href="/export/{{ job_id }}/csv" class="btn btn-primary">
             Download CSV
         </a>
-        <form action="/export/{{ job_id }}/sheets" method="post" id="export-form" style="display:inline;">
-            <button type="submit" class="btn btn-secondary" id="export-btn"
-                    onclick="this.disabled=true;this.textContent='Exporting...';document.getElementById('export-form').submit();">
-                Export to Google Sheets
-            </button>
-        </form>
     </div>
+
+    <form action="/export/{{ job_id }}/sheets" method="post" id="export-form">
+        <div style="margin-bottom:16px;">
+            <label for="share_emails" style="font-weight:600;display:block;margin-bottom:6px;">
+                Share Google Sheet with (optional):
+            </label>
+            <input type="text" name="share_emails" id="share_emails"
+                   placeholder="email1@example.com, email2@example.com"
+                   style="width:100%;padding:10px;border:1px solid var(--color-border);border-radius:var(--radius);font-size:14px;">
+            <div style="font-size:12px;color:var(--color-text-secondary);margin-top:4px;">
+                Comma-separated email addresses. They'll get editor access and a notification.
+            </div>
+        </div>
+        <button type="submit" class="btn btn-secondary" id="export-btn"
+                onclick="this.disabled=true;this.textContent='Exporting...';">
+            Export to Google Sheets
+        </button>
+    </form>
     {% else %}
     <p class="empty-state">
         No ASINs ready for export. <a href="/review/{{ job_id }}">Review and approve listings first.</a>

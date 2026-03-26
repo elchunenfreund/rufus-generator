@@ -8,7 +8,10 @@ from app.models import ASINRecord
 
 log = get_logger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
 
 # Amazon flat file columns in order
 EXPORT_COLUMNS = [
@@ -35,7 +38,7 @@ def _sanitize_cell(value: str) -> str:
     return value
 
 
-def _get_sheets_service():
+def _get_credentials():
     import json
     import os
 
@@ -43,9 +46,9 @@ def _get_sheets_service():
     json_str = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
     if json_str:
         info = json.loads(json_str)
-        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        return service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
     elif settings.google_service_account_path:
-        creds = service_account.Credentials.from_service_account_file(
+        return service_account.Credentials.from_service_account_file(
             settings.google_service_account_path, scopes=SCOPES
         )
     else:
@@ -53,12 +56,16 @@ def _get_sheets_service():
             "Google Sheets export is not configured. "
             "Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_PATH."
         )
-    return build("sheets", "v4", credentials=creds)
 
 
-def export_to_google_sheets(records: list[ASINRecord], job_id: str) -> dict:
+def _get_sheets_service():
+    return build("sheets", "v4", credentials=_get_credentials())
+
+
+def export_to_google_sheets(records: list[ASINRecord], job_id: str, share_with_emails: list[str] | None = None) -> dict:
     """Export records to a new Google Sheets spreadsheet with conditional formatting."""
-    service = _get_sheets_service()
+    creds = _get_credentials()
+    service = build("sheets", "v4", credentials=creds)
 
     # Create new spreadsheet
     spreadsheet = service.spreadsheets().create(
@@ -169,6 +176,24 @@ def export_to_google_sheets(records: list[ASINRecord], job_id: str) -> dict:
         ).execute()
 
     url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+
+    # Share with specified email addresses
+    if share_with_emails:
+        drive_service = build("drive", "v3", credentials=creds)
+        for email in share_with_emails:
+            email = email.strip()
+            if not email:
+                continue
+            try:
+                drive_service.permissions().create(
+                    fileId=spreadsheet_id,
+                    body={"type": "user", "role": "writer", "emailAddress": email},
+                    sendNotificationEmail=True,
+                ).execute()
+                log.info("sheet_shared", email=email, spreadsheet_id=spreadsheet_id)
+            except Exception as e:
+                log.warning("sheet_share_failed", email=email, error=str(e))
+
     log.info("sheets_created", spreadsheet_id=spreadsheet_id, rows=len(data_rows))
 
     return {"url": url, "spreadsheet_id": spreadsheet_id, "rows_exported": len(data_rows)}

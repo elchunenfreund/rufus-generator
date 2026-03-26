@@ -3,8 +3,8 @@
 import csv
 import io
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth import verify_credentials
@@ -72,6 +72,8 @@ async def export_page(
 @router.post("/{job_id}/sheets")
 async def export_to_sheets(
     job_id: str,
+    request: Request,
+    share_emails: str = Form(""),
     include_completed: bool = Query(True),
     username: str = Depends(verify_credentials),
     db: Session = Depends(get_db),
@@ -91,11 +93,15 @@ async def export_to_sheets(
     if not records:
         raise HTTPException(status_code=400, detail="No exportable ASINs")
 
+    # Parse comma/space-separated email list
+    emails = [e.strip() for e in share_emails.replace(",", " ").split() if "@" in e]
+
     try:
         from app.services.sheets_exporter import export_to_google_sheets
-        result = export_to_google_sheets(records, job_id)
-        log.info("sheets_export", job_id=job_id, count=len(records), sheet_url=result.get("url"))
-        return result
+        result = export_to_google_sheets(records, job_id, share_with_emails=emails or None)
+        log.info("sheets_export", job_id=job_id, count=len(records), sheet_url=result.get("url"), shared_with=emails)
+        # Redirect to the Google Sheet
+        return RedirectResponse(url=result["url"], status_code=303)
     except Exception as e:
         log.error("sheets_export_error", job_id=job_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Export failed: {e}")
