@@ -17,6 +17,10 @@ ASIN_PATTERN = re.compile(r"^[A-Z0-9]{10}$")
 # Common column names that contain ASINs
 ASIN_COLUMN_NAMES = {"asin", "item_sku", "sku", "product_id", "amazon_asin", "asin1"}
 
+# Columns to use as fallback product identifier when no ASIN exists
+PRODUCT_ID_COLUMN_NAMES = {"sku", "item_sku", "product_id", "upc", "gtin", "ean", "external_product_id"}
+PRODUCT_NAME_COLUMN_NAMES = {"title", "name", "product_name", "item_name", "product_title", "item_name_in_altra_bilingual_packaging_file"}
+
 
 @dataclass
 class ParsedSpreadsheet:
@@ -40,8 +44,13 @@ def _sanitize_cell(value: str, max_length: int = 2000) -> str:
 
 def _detect_asin_column(headers: list[str]) -> str | None:
     """Find which column contains ASINs by matching header names."""
+    # Exact match first
     for header in headers:
         if header.strip().lower().replace(" ", "_") in ASIN_COLUMN_NAMES:
+            return header
+    # Fuzzy match: any header containing "asin"
+    for header in headers:
+        if "asin" in header.strip().lower():
             return header
     return None
 
@@ -112,7 +121,7 @@ def parse_xlsx(file_path: Path) -> ParsedSpreadsheet:
             }
         )
     else:
-        result.errors.append("No ASIN column detected")
+        log.info("no_asin_column", filename=result.filename, note="Products will use fallback IDs")
 
     # Check for duplicate ASINs
     all_asins = [
@@ -178,7 +187,7 @@ def parse_csv(file_path: Path) -> ParsedSpreadsheet:
             }
         )
     else:
-        result.errors.append("No ASIN column detected")
+        log.info("no_asin_column", filename=result.filename, note="Products will use fallback IDs")
 
     # Duplicate check
     all_asins = [
