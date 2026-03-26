@@ -1,5 +1,5 @@
 import structlog
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -20,6 +20,18 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/1"
+
+    @model_validator(mode="after")
+    def fix_heroku_urls(self):
+        # Heroku uses postgres:// but SQLAlchemy requires postgresql://
+        if self.database_url.startswith("postgres://"):
+            self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+        # Default celery URLs to redis_url if not explicitly set
+        if self.celery_broker_url == "redis://localhost:6379/0" and self.redis_url != "redis://localhost:6379/0":
+            self.celery_broker_url = self.redis_url
+        if self.celery_result_backend == "redis://localhost:6379/1" and self.redis_url != "redis://localhost:6379/0":
+            self.celery_result_backend = self.redis_url
+        return self
 
     # Claude API
     anthropic_api_key: SecretStr = SecretStr("")
