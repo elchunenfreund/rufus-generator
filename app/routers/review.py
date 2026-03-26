@@ -156,7 +156,8 @@ async def approve_asin(
     db.flush()
     _refresh_job_counters(db, job_id)
     db.commit()
-    return {"status": "approved", "asin": record.asin}
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/review/{job_id}", status_code=303)
 
 
 @router.post("/{job_id}/batch-approve")
@@ -171,7 +172,7 @@ async def batch_approve(
         db.query(ASINRecord)
         .filter(
             ASINRecord.job_id == job_id,
-            ASINRecord.status == ASINStatus.completed,
+            ASINRecord.status.in_([ASINStatus.completed, ASINStatus.needs_review]),
             ASINRecord.confidence_score >= min_confidence,
         )
         .all()
@@ -184,7 +185,8 @@ async def batch_approve(
     _refresh_job_counters(db, job_id)
     db.commit()
     log.info("batch_approved", job_id=job_id, count=len(records), threshold=min_confidence)
-    return {"approved": len(records), "threshold": min_confidence}
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/review/{job_id}", status_code=303)
 
 
 @router.post("/{job_id}/save/{asin_id}")
