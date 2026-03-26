@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Google Sheets
     google_service_account_path: str = ""
 
+    # Google OAuth2 (per-user flow for Sheets export)
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+
     # Upload limits
     max_upload_size_bytes: int = 10 * 1024 * 1024 * 1024  # 10GB
     max_image_size_bytes: int = 10 * 1024 * 1024  # 10MB per image

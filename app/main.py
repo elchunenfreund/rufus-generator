@@ -156,3 +156,59 @@ app.include_router(processing.router, prefix="/processing", tags=["processing"])
 app.include_router(review.router, prefix="/review", tags=["review"])
 app.include_router(export.router, prefix="/export", tags=["export"])
 app.include_router(reference.router, prefix="/reference", tags=["reference"])
+
+
+# Google OAuth callback — must be at /auth/google/callback (not under /export prefix)
+@app.get("/auth/google/callback")
+async def google_oauth_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+):
+    """Handle Google OAuth2 callback, exchange code for tokens."""
+    import httpx
+
+    if error:
+        log.error("google_oauth_error", error=error)
+        raise HTTPException(status_code=400, detail=f"Google OAuth error: {error}")
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    parts = state.split(":", 1)
+    username = parts[0] if parts else ""
+    job_id = parts[1] if len(parts) > 1 else ""
+
+    redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/google/callback"
+
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": settings.google_oauth_client_id,
+                "client_secret": settings.google_oauth_client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+
+    if token_response.status_code != 200:
+        log.error("google_token_exchange_failed", status=token_response.status_code, body=token_response.text)
+        raise HTTPException(status_code=500, detail="Failed to exchange Google authorization code")
+
+    tokens = token_response.json()
+
+    from app.routers.export import _user_google_tokens
+    _user_google_tokens[username] = {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", ""),
+    }
+
+    log.info("google_oauth_connected", username=username)
+
+    if job_id:
+        return RedirectResponse(url=f"/export/{job_id}", status_code=302)
+    return RedirectResponse(url="/export/", status_code=302)

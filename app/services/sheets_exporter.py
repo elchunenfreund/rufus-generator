@@ -197,3 +197,133 @@ def export_to_google_sheets(records: list[ASINRecord], job_id: str, share_with_e
     log.info("sheets_created", spreadsheet_id=spreadsheet_id, rows=len(data_rows))
 
     return {"url": url, "spreadsheet_id": spreadsheet_id, "rows_exported": len(data_rows)}
+
+
+def export_with_user_credentials(
+    records: list[ASINRecord],
+    job_id: str,
+    access_token: str,
+    share_with_emails: list[str] | None = None,
+) -> dict:
+    """Export records to Google Sheets using the user's OAuth2 access token.
+
+    The sheet is created in the user's own Google Drive.
+    """
+    from google.oauth2.credentials import Credentials
+
+    creds = Credentials(token=access_token)
+    service = build("sheets", "v4", credentials=creds)
+
+    spreadsheet = service.spreadsheets().create(
+        body={
+            "properties": {"title": f"Rufus Listings - {job_id[:8]}"},
+            "sheets": [{"properties": {"title": "Listings"}}],
+        }
+    ).execute()
+
+    sheet_id = spreadsheet["sheets"][0]["properties"]["sheetId"]
+    spreadsheet_id = spreadsheet["spreadsheetId"]
+
+    # Build rows — same logic as service account export
+    header_row = [col.replace("_", " ").title() for col in EXPORT_COLUMNS]
+    data_rows = []
+    source_cells = []
+    ai_cells = []
+    missing_cells = []
+
+    for row_idx, record in enumerate(records):
+        source = record.source_data or {}
+        generated = record.generated_data or {}
+        row = []
+        for col_idx, col in enumerate(EXPORT_COLUMNS):
+            if col == "asin":
+                row.append(record.asin)
+                source_cells.append((row_idx + 1, col_idx))
+            elif col == "confidence_score":
+                row.append(f"{record.confidence_score:.0%}" if record.confidence_score else "")
+            elif col == "generation_mode":
+                row.append(record.generation_mode.value if record.generation_mode else "")
+            elif col == "missing_fields":
+                row.append(", ".join(record.missing_fields) if record.missing_fields else "")
+            elif col in source and source[col]:
+                row.append(_sanitize_cell(str(source[col])))
+                source_cells.append((row_idx + 1, col_idx))
+            elif col in generated and generated[col]:
+                row.append(_sanitize_cell(str(generated[col])))
+                ai_cells.append((row_idx + 1, col_idx))
+            else:
+                row.append("")
+                missing_cells.append((row_idx + 1, col_idx))
+        data_rows.append(row)
+
+    all_rows = [header_row] + data_rows
+    for i in range(0, len(all_rows), 50):
+        batch = all_rows[i : i + 50]
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"Listings!A{i + 1}",
+            valueInputOption="RAW",
+            body={"values": batch},
+        ).execute()
+
+    # Formatting
+    requests = [
+        {
+            "repeatCell": {
+                "range": {"sheetId": sheet_id, "startRowIndex": 0, "endRowIndex": 1},
+                "cell": {
+                    "userEnteredFormat": {
+                        "backgroundColor": {"red": 0.17, "green": 0.54, "blue": 0.54},
+                        "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
+                    }
+                },
+                "fields": "userEnteredFormat(backgroundColor,textFormat)",
+            }
+        },
+        {
+            "updateSheetProperties": {
+                "properties": {"sheetId": sheet_id, "gridProperties": {"frozenRowCount": 1}},
+                "fields": "gridProperties.frozenRowCount",
+            }
+        },
+    ]
+
+    def _color(cells, bg):
+        for r, c in cells[:500]:
+            requests.append({
+                "repeatCell": {
+                    "range": {"sheetId": sheet_id, "startRowIndex": r, "endRowIndex": r + 1, "startColumnIndex": c, "endColumnIndex": c + 1},
+                    "cell": {"userEnteredFormat": {"backgroundColor": bg}},
+                    "fields": "userEnteredFormat.backgroundColor",
+                }
+            })
+
+    _color(source_cells, {"red": 0.91, "green": 0.96, "blue": 0.91})
+    _color(ai_cells, {"red": 0.89, "green": 0.95, "blue": 0.99})
+    _color(missing_cells, {"red": 1.0, "green": 0.92, "blue": 0.93})
+
+    if requests:
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=spreadsheet_id, body={"requests": requests},
+        ).execute()
+
+    url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
+
+    if share_with_emails:
+        drive_service = build("drive", "v3", credentials=creds)
+        for email in share_with_emails:
+            email = email.strip()
+            if not email:
+                continue
+            try:
+                drive_service.permissions().create(
+                    fileId=spreadsheet_id,
+                    body={"type": "user", "role": "writer", "emailAddress": email},
+                    sendNotificationEmail=True,
+                ).execute()
+                log.info("sheet_shared", email=email, spreadsheet_id=spreadsheet_id)
+            except Exception as e:
+                log.warning("sheet_share_failed", email=email, error=str(e))
+
+    log.info("sheets_created_oauth", spreadsheet_id=spreadsheet_id, rows=len(data_rows))
+    return {"url": url, "spreadsheet_id": spreadsheet_id, "rows_exported": len(data_rows)}

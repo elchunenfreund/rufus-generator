@@ -7,14 +7,48 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
+import urllib.parse
+
 from app.auth import verify_credentials
-from app.config import get_logger
+from app.config import get_logger, settings
 from app.database import get_db
 from app.templating import templates
 from app.models import ASINRecord, ASINStatus, Job
 
 log = get_logger(__name__)
 router = APIRouter()
+
+# In-memory token store: {username: {"access_token": ..., "refresh_token": ..., ...}}
+_user_google_tokens: dict[str, dict] = {}
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_OAUTH_SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file"
+
+
+@router.get("/auth/google")
+async def google_oauth_redirect(
+    request: Request,
+    job_id: str = Query(""),
+    username: str = Depends(verify_credentials),
+):
+    """Redirect user to Google OAuth2 consent screen."""
+    if not settings.google_oauth_client_id:
+        raise HTTPException(status_code=500, detail="Google OAuth not configured")
+
+    # Build redirect URI from request host
+    redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/google/callback"
+    state = f"{username}:{job_id}"
+    params = {
+        "client_id": settings.google_oauth_client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": GOOGLE_OAUTH_SCOPES,
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state,
+    }
+    url = f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+    return RedirectResponse(url=url, status_code=302)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -24,13 +58,15 @@ async def export_index(
     db: Session = Depends(get_db),
 ):
     """Redirect to most recent job's export page."""
+    from fastapi.responses import RedirectResponse
     job = db.query(Job).order_by(Job.created_at.desc()).first()
     if not job:
         return templates.TemplateResponse("export.html", {
             "request": request, "job": None,
             "approved_count": 0, "completed_count": 0, "username": username,
+            "google_connected": username in _user_google_tokens,
+            "google_oauth_configured": bool(settings.google_oauth_client_id),
         })
-    from fastapi.responses import RedirectResponse
     return RedirectResponse(url=f"/export/{job.id}", status_code=302)
 
 
@@ -65,6 +101,8 @@ async def export_page(
             "completed_count": completed,
             "total_count": total,
             "exportable": approved + completed,
+            "google_connected": username in _user_google_tokens,
+            "google_oauth_configured": bool(settings.google_oauth_client_id),
         },
     )
 
@@ -97,10 +135,19 @@ async def export_to_sheets(
     emails = [e.strip() for e in share_emails.replace(",", " ").split() if "@" in e]
 
     try:
-        from app.services.sheets_exporter import export_to_google_sheets
-        result = export_to_google_sheets(records, job_id, share_with_emails=emails or None)
+        user_tokens = _user_google_tokens.get(username)
+        if user_tokens:
+            from app.services.sheets_exporter import export_with_user_credentials
+            result = export_with_user_credentials(
+                records, job_id,
+                access_token=user_tokens["access_token"],
+                share_with_emails=emails or None,
+            )
+        else:
+            from app.services.sheets_exporter import export_to_google_sheets
+            result = export_to_google_sheets(records, job_id, share_with_emails=emails or None)
+
         log.info("sheets_export", job_id=job_id, count=len(records), sheet_url=result.get("url"), shared_with=emails)
-        # Redirect to the Google Sheet
         return RedirectResponse(url=result["url"], status_code=303)
     except Exception as e:
         log.error("sheets_export_error", job_id=job_id, error=str(e))
