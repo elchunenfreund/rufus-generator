@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Claude API
     anthropic_api_key: SecretStr = SecretStr("")
-    anthropic_model: str = "claude-sonnet-4-6-20250514"
+    anthropic_model: str = "claude-sonnet-4-20250514"
     anthropic_max_concurrent: int = 10
     anthropic_rpm_limit: int = 50
     anthropic_tpm_limit: int = 200_000
