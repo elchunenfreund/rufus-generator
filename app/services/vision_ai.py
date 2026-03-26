@@ -8,6 +8,7 @@ import anthropic
 
 from app.config import get_logger, settings
 from app.services.rate_limiter import rate_limiter
+from app.services.storage import storage
 
 log = get_logger(__name__)
 
@@ -63,12 +64,11 @@ def analyze_images(image_paths: list[str], asin: str) -> VisionResult:
         # Build content with images
         content = []
         for img_path in image_paths[:5]:  # max 5 images per ASIN
-            path = Path(img_path)
-            if not path.exists():
+            if not storage.exists(img_path):
                 log.warning("image_not_found", path=img_path, asin=asin)
                 continue
 
-            suffix = path.suffix.lower()
+            suffix = Path(img_path).suffix.lower()
             media_type = {
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
@@ -76,8 +76,8 @@ def analyze_images(image_paths: list[str], asin: str) -> VisionResult:
                 ".webp": "image/webp",
             }.get(suffix, "image/jpeg")
 
-            with open(path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode("utf-8")
+            image_data = storage.read(img_path)
+            b64 = base64.b64encode(image_data).decode("utf-8")
 
             content.append({
                 "type": "image",

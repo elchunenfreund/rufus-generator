@@ -33,6 +33,9 @@ class Settings(BaseSettings):
             self.celery_result_backend = self.redis_url
         return self
 
+    # Sentry
+    sentry_dsn: str = ""
+
     # Claude API
     anthropic_api_key: SecretStr = SecretStr("")
     anthropic_model: str = "claude-sonnet-4-6-20250514"
@@ -48,6 +51,12 @@ class Settings(BaseSettings):
     max_image_size_bytes: int = 10 * 1024 * 1024  # 10MB per image
     max_images_per_asin: int = 10
     upload_dir: str = "./uploads"
+
+    # AWS S3 (optional — if aws_s3_bucket is set, uploads go to S3 instead of local disk)
+    aws_s3_bucket: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "us-east-1"
 
     # Processing
     celery_worker_max_tasks: int = 50

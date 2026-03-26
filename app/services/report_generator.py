@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.config import get_logger, settings
 from app.models import ASINRecord, GenerationMode
+from app.services.storage import storage
 
 def _esc(value: str) -> str:
     """HTML-escape a string to prevent XSS."""
@@ -101,17 +102,11 @@ def render_report_card_html(data: ReportData) -> str:
         else:
             return '<span class="indicator indicator-missing">&#9888; Missing</span>'
 
-    # Images row (convert absolute paths to relative URLs)
+    # Images row — image_paths are storage keys (e.g. "{job_id}/images/{asin}/file.jpg")
     images_html = ""
     if data.image_paths:
-        def _img_url(p: str) -> str:
-            try:
-                return "/uploads/" + str(Path(p).relative_to(settings.upload_dir))
-            except ValueError:
-                return "/uploads/" + Path(p).name
-
         imgs = "".join(
-            f'<img src="{_esc(_img_url(p))}" style="max-height:120px;border-radius:4px;margin-right:8px;" alt="Product">'
+            f'<img src="{_esc(storage.get_url(p))}" style="max-height:120px;border-radius:4px;margin-right:8px;" alt="Product">'
             for p in data.image_paths[:5]
         )
         images_html = f"""
