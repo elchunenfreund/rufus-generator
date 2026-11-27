@@ -105,3 +105,38 @@ def test_get_logger_returns_logger():
 
     log = get_logger("test")
     assert log is not None
+
+
+def test_default_password_rejected_in_production(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.delenv("DYNO", raising=False)
+    monkeypatch.delenv("AUTH_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="AUTH_PASSWORD"):
+        Settings(environment="production", _env_file=None)
+
+
+def test_default_password_rejected_on_heroku(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.setenv("DYNO", "web.1")
+    monkeypatch.delenv("AUTH_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="AUTH_PASSWORD"):
+        Settings(_env_file=None)
+
+
+def test_real_password_accepted_on_heroku(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.setenv("DYNO", "web.1")
+    s = Settings(auth_password=SecretStr("a-real-password"), _env_file=None)
+    assert s.auth_password.get_secret_value() == "a-real-password"
+
+
+def test_default_password_allowed_in_development(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.delenv("DYNO", raising=False)
+    monkeypatch.delenv("AUTH_PASSWORD", raising=False)
+    s = Settings(_env_file=None)
+    assert s.auth_password.get_secret_value() == "changeme"

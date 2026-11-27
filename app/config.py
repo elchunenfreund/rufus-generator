@@ -1,3 +1,5 @@
+import os
+
 import structlog
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings
@@ -35,6 +37,14 @@ class Settings(BaseSettings):
             self.celery_broker_url = self.redis_url
         if self.celery_result_backend == "redis://localhost:6379/1" and self.redis_url != "redis://localhost:6379/0":
             self.celery_result_backend = self.redis_url
+        return self
+
+    @model_validator(mode="after")
+    def require_real_password_in_production(self):
+        # Heroku sets DYNO on every dyno, so this catches deploys even if ENVIRONMENT was never set.
+        in_production = self.environment == "production" or "DYNO" in os.environ
+        if in_production and self.auth_password.get_secret_value() in ("", "changeme"):
+            raise ValueError("AUTH_PASSWORD must be set to a real password in production")
         return self
 
     # Sentry
