@@ -1,25 +1,27 @@
 # Rufus Generator
 
-Amazon Rufus/COSMOS listing generator with vision AI. Upload product spreadsheets and images, generate optimized listing content using Claude, review with COSMO-style report cards, and export to Google Sheets.
+Turns a vendor's product spreadsheet and photos into Amazon listing content: titles, bullets, descriptions, search terms and backend attributes. A person reviews the drafts and exports them to Google Sheets.
 
-**Version:** 0.1.0
-**Python:** 3.12+
-**Stack:** FastAPI, Celery, PostgreSQL, Redis, Claude API
+I built it for Amazon catalog work, where a new line of products can mean hundreds of listings written by hand.
 
-## Features
+**Stack:** Python, FastAPI, Celery, PostgreSQL, Redis, Claude API, HTMX
 
-- **Spreadsheet upload** — Parse `.xlsx` and `.csv` files with automatic ASIN detection and column mapping
-- **Image extraction** — Extract product images from ZIP archives, match to ASINs by folder name, filename, or manifest CSV
-- **Vision AI analysis** — Send product images to Claude for physical feature extraction, selling points, and packaging OCR
-- **Content generation** — RUFUS/COSMOS-optimized titles, bullet points, descriptions, search terms, and 10 backend attributes
-- **Reference profiles** — Upload competitor listing PDFs; the system extracts tone, bullet style, keyword density, and formatting patterns to guide generation
-- **Gap detection and confidence scoring** — Weighted scoring by data source (source > vision > AI), missing field identification
-- **Real-time progress** — SSE-powered dashboard with live counters, ETA, and cost tracking
-- **COSMO-style review** — Report card UI with batch-approve by confidence threshold, inline editing, filter/sort, pagination
-- **Google Sheets export** — Conditional formatting (green=source, blue=AI, red=missing), formula injection protection, frozen headers
-- **Celery task pipeline** — Adaptive rate limiting, per-ASIN retry with exponential backoff, pause/resume, two queues (interactive + bulk)
-- **Auth** — HTTP Basic authentication on all endpoints including file uploads
-- **Security** — Path traversal protection, ZIP bomb defense, cell content sanitization, timing-safe credential comparison
+## How it works
+
+1. **Upload.** You upload an `.xlsx` or `.csv` and a ZIP of images. The app finds the ASIN column, maps the other columns, and matches each image to a product by folder, filename or manifest.
+2. **Process.** One Celery task runs per product. Claude vision reads the photos (features, packaging text), then Claude writes the listing. Rate limits are enforced in Redis, and failed products retry with backoff. Jobs can be paused and resumed.
+3. **Score.** Each field is scored by where it came from (the spreadsheet beats vision, vision beats a guess), and missing fields are flagged.
+4. **Review.** Report cards show every product. You can edit inline, or batch-approve everything above a confidence threshold.
+5. **Export.** Approved listings go to Google Sheets, colored by source, with formula-injection protection.
+
+You can also upload competitor listing PDFs. The app pulls out their tone and bullet style and uses that to guide generation.
+
+## Engineering notes
+
+- Two Celery queues: one for fanning out a job, one for the per-product work. This keeps the UI responsive during big batches.
+- Progress streams to the browser over server-sent events.
+- Uploads are hardened against path traversal and ZIP bombs. Logins use timing-safe comparison. The app refuses to start in production with a default password.
+- Around 200 pytest tests cover the services, routers and tasks.
 
 ## Quickstart
 
@@ -32,7 +34,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The app starts at `http://localhost:8000`. Default credentials: `admin` / `changeme`.
+The app starts at `http://localhost:8000`. Locally the login defaults to `admin` / `changeme`. In production, `AUTH_PASSWORD` must be set or the app will not start.
 
 ### Local development
 
