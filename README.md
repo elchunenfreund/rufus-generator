@@ -1,8 +1,8 @@
 # Rufus Generator
 
-Turns a vendor's product spreadsheet and photos into Amazon listing content: titles, bullets, descriptions, search terms and backend attributes. A person reviews the drafts and exports them to Google Sheets.
+A batch AI pipeline that turns a product spreadsheet and a folder of photos into structured product content. It reads the images with a vision model, writes the content, scores how confident it is in each field, and puts a person in the loop before anything is exported.
 
-I built it for Amazon catalog work, where a new line of products can mean hundreds of listings written by hand.
+The current output format is Amazon listings (titles, bullets, descriptions, search terms, attributes), because that's where the catalog work was. The pipeline itself (ingest, per-item AI processing, scoring, review, export) isn't tied to Amazon.
 
 **Stack:** Python, FastAPI, Celery, PostgreSQL, Redis, Claude API, HTMX
 
